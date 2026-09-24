@@ -422,7 +422,7 @@ function newClient(sexo){return{id:Date.now().toString(36)+Math.random().toStrin
  nacimiento:nacDefault(),favoritos:[],alimentosExtra:[],suplementos:[],trabajo:'sedentario',sueno:7,estres:'medio',experiencia:'principiante',dias:3,minutos:60,lugar:'gimnasio',hora:'tarde',
  objetivo:'recomposicion',enfoque:sexo==='M'?'gluteos':'equilibrado',ritmo:'moderado',biotipo:'',
  condiciones:[],trimestre:1,lesiones:[],discapacidad:'ninguna',medicacion:[],notas:'',
- dieta:'omnivora',alergias:[],disgustos:[],comidas:4,maquinasNo:[],ejerciciosNo:[],historial:[],seed:1,swaps:{}}}
+ dieta:'omnivora',alergias:[],disgustos:[],comidas:4,ayuno:'no',ventanaIni:'13:00',maquinasNo:[],ejerciciosNo:[],historial:[],seed:1,swaps:{}}}
 const cur=()=>S.clients.find(c=>c.id===S.active);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const r1=x=>Math.round(x*10)/10, r0=x=>Math.round(x);
@@ -714,7 +714,7 @@ function buildMeal(meal,tg,rng,c,R,usedP,deficit){
  const vec=f=>[f.p*4,f.c*4,f.f*9,f.k],W=[3,1,1.2,1.5];
  const tgt=[tg.P*4,tg.C*4,tg.F*9,tg.P*4+tg.C*4+tg.F*9];
  const base=[0,0,0,0];fixed.forEach(i=>vec(i.f).forEach((a,j)=>base[j]+=a*i.g/100));
- const A=vars.map(v=>vec(v.f)),lo=vars.map(v=>v.f.r==='prot'?Math.min(v.f.mn??DEF.prot[0],tg.P/(v.f.p/100)*.4)/100:0),hi=vars.map(v=>(v.f.mx??(DEF[v.f.r]||[0,100])[1])/100);
+ const A=vars.map(v=>vec(v.f)),lo=vars.map(v=>v.f.r==='prot'?Math.min(v.f.mn??DEF.prot[0],tg.P/(v.f.p/100)*.4)/100:0),sc=Math.max(1,(meal[2]||0)/.35),hi=vars.map(v=>(v.f.mx??(DEF[v.f.r]||[0,100])[1])*(v.f.r==='grasa'?Math.min(sc,1.5):sc)/100);
  let x=vars.map((v,i)=>Math.max(lo[i],(DEF[v.f.r]||[20])[0]/100));
  let L=0;A.forEach(a=>a.forEach((q,j)=>L+=2*W[j]*q*q));L=L||1;
  for(let it=0;it<500;it++){
@@ -728,15 +728,45 @@ function buildMeal(meal,tg,rng,c,R,usedP,deficit){
  items.forEach(i=>{tot.k+=i.f.k*i.g/100;tot.p+=i.f.p*i.g/100;tot.c+=i.f.c*i.g/100;tot.f+=i.f.f*i.g/100});
  return{name,items,tot};
 }
+const AYUNOS={'16:8':{h:8,max:4},'18:6':{h:6,max:3},'20:4':{h:4,max:2}};
+const MEALS_AYUNO={
+ 2:[['Comida (rompe el ayuno)','P',.5],['Cena','P',.5]],
+ 3:[['Comida (rompe el ayuno)','P',.4],['Merienda','S',.2],['Cena','P',.4]],
+ 4:[['Comida (rompe el ayuno)','P',.35],['Merienda','S',.15],['Cena','P',.35],['Última toma de la ventana','N',.15]]};
+const hhmm=min=>{min=((Math.round(min/15)*15)%1440+1440)%1440;return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0')};
+const toMin=t=>{const [h,mi]=String(t||'13:00').split(':').map(Number);return (h||0)*60+(mi||0)};
+function comidasPermitidas(c){const a=AYUNOS[c.ayuno];return a?Array.from({length:a.max-1},(_,i)=>i+2):[3,4,5,6]}
+function mealPlan(c){
+ const a=AYUNOS[c.ayuno];
+ if(!a)return{meals:MEALS[+c.comidas||4]||MEALS[4],times:null,ayuno:null};
+ const n=Math.max(2,Math.min(a.max,+c.comidas||3)),ini=toMin(c.ventanaIni),fin=ini+a.h*60;
+ const meals=MEALS_AYUNO[n],times=meals.map((_,i)=>hhmm(ini+i*(a.h*60-30)/(n-1)));
+ return{meals,times,ayuno:{tipo:c.ayuno,ini:hhmm(ini),fin:hhmm(fin),h:a.h,n}};
+}
+function ayunoInfo(c,m){
+ const P=mealPlan(c);if(!P.ayuno)return{alerts:[],notes:[]};
+ const cs=conds(c),has=x=>cs.includes(x),md=c.medicacion||[],alerts=[],notes=[];
+ notes.push(`Ayuno ${c.ayuno}: come entre las ${P.ayuno.ini} y las ${P.ayuno.fin} (${P.ayuno.n} comidas). Fuera de ese horario: agua, café solo, té o infusiones sin azúcar ni leche.`);
+ notes.push('Rompe el ayuno con una comida completa con proteína y verdura, no con algo dulce. Con menos comidas, cada plato es más grande: el total del día es el mismo.');
+ if(c.hora==='manana')notes.push('Entrena en ayunas: bebe agua con una pizca de sal antes de empezar y haz la primera comida lo antes posible después de entrenar. Si hay mareos, adelantar la ventana.');
+ if(c.ayuno==='20:4')notes.push('Con solo 4 horas de ventana cuesta llegar a la proteína y las calorías; vigila que no baje la masa muscular en las mediciones.');
+ if(has('embarazo')||has('lactancia'))alerts.push('Ayuno intermitente NO recomendado en embarazo o lactancia.');
+ if(has('diabetes1')||md.includes('insulina')||md.includes('antidiabeticos'))alerts.push('Ayuno con diabetes o medicación para la glucosa: alto riesgo de hipoglucemia. Solo con autorización y ajuste de su médico.');
+ if(m.edad&&m.edad<18)alerts.push('Ayuno intermitente no recomendado en menores de 18 años.');
+ if(m.imc&&m.imc<18.5)alerts.push('Con bajo peso no conviene el ayuno: dificulta llegar a las calorías necesarias.');
+ if(has('renal')||has('cardiopatia'))alerts.push('Con enfermedad renal o cardiaca, consultar el ayuno con su médico.');
+ if(has('anemia')||has('hipotiroidismo'))notes.push('Con anemia o tiroides, vigilar el cansancio; si aumenta, ampliar la ventana (por ejemplo a 14:10).');
+ return{alerts,notes};
+}
 function genDiet(c,m,R,N){
- const meals=MEALS[+c.comidas||4],deficit=N.adj<0;
- const trainIdx={manana:0,mediodia:meals.findIndex(x=>x[0]==='Comida'),tarde:meals.findIndex(x=>x[0]==='Cena'),noche:meals.length-1}[c.hora];
+ const MP=mealPlan(c),meals=MP.meals,deficit=N.adj<0;
+ const trainIdx={manana:0,mediodia:meals.findIndex(x=>x[0].startsWith('Comida')),tarde:meals.findIndex(x=>x[0]==='Cena'),noche:meals.length-1}[c.hora];
  let wC=meals.map((x,i)=>x[2]*(i===trainIdx?1.35:1)*(deficit&&x[0]==='Cena'?.7:1));
  const s=wC.reduce((a,b)=>a+b,0);wC=wC.map(w=>w/s);
  const days=[];
  for(let d=0;d<7;d++){
   const rng=mulberry32((+c.seed||1)*7919+d*104729+17);const usedP=new Set();
-  const ms=meals.map((x,i)=>{const r=buildMeal(x,{P:N.prot*x[2],C:N.carb*wC[i],F:N.fat*x[2]},rng,c,R,usedP,deficit);r.post=i===trainIdx;return r});
+  const ms=meals.map((x,i)=>{const r=buildMeal(x,{P:N.prot*x[2],C:N.carb*wC[i],F:N.fat*x[2]},rng,c,R,usedP,deficit);r.post=i===trainIdx;r.time=MP.times?MP.times[i]:null;return r});
   const tot={k:0,p:0,c:0,f:0};ms.forEach(x=>{for(const k in tot)tot[k]+=x.tot[k]});
   days.push({meals:ms,tot});
  }
@@ -821,6 +851,7 @@ const seg=(field,opts,val,cls='')=>`<div class="seg ${cls}">${opts.map(([v,l])=>
 const chips=(field,opts,arr,x='')=>`<div class="chips">${opts.map(([v,l])=>`<button type="button" class="chip ${x} ${(arr||[]).includes(v)?'on':''}" data-tog="${field}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
 const num=(f,l,v,u,a='')=>`<label class="fld"><span>${l}</span><div class="inp"><input type="number" inputmode="decimal" data-f="${f}" value="${esc(v)}" ${a}>${u?`<em>${u}</em>`:''}</div></label>`;
 const sel=(f,l,opts,v)=>`<label class="fld"><span>${l}</span><select data-f="${f}">${opts.map(([k,t])=>`<option value="${k}" ${String(v)===String(k)?'selected':''}>${t}</option>`).join('')}</select></label>`;
+function ventTxt(c){const P=mealPlan(c);return P.ayuno?`Ventana de comida: ${P.ayuno.ini} – ${P.ayuno.fin}. Ayuno de ${24-P.ayuno.h} horas (desde la última comida hasta la primera del día siguiente). Horario de comidas: ${P.meals.map((x,i)=>x[0].replace(' (rompe el ayuno)','')+' '+P.times[i]).join(' · ')}.`:''}
 function edadTxt(c){const a=edadDe(c.nacimiento);return a!==null?`Edad: <b>${a} años</b> (se actualiza sola)`:`Sin fecha válida: se usa la edad guardada (${esc(c.edad)} años)`}
 function statsHTML(list){return`<div class="stats">${list.map(a=>`<div class="stat ${a.s}"><div class="l">${a.l}</div><div class="v">${a.v}</div><div class="d">${a.d}</div></div>`).join('')}</div>`}
 function viewFicha(c,m){
@@ -868,7 +899,10 @@ function viewFicha(c,m){
 
  <div class="card"><h2>Alimentación</h2>
   <div class="grid">${sel('dieta','Tipo de dieta',DIETAS,c.dieta)}</div>
-  <div class="row"><div><div class="muted" style="font-size:12.5px;margin-bottom:4px">Comidas al día</div>${seg('comidas',[[3,'3'],[4,'4'],[5,'5'],[6,'6']],c.comidas)}</div></div>
+  <div class="row"><div><div class="muted" style="font-size:12.5px;margin-bottom:4px">Ayuno intermitente</div>${seg('ayuno',[['no','No'],['16:8','16:8'],['18:6','18:6'],['20:4','20:4']],c.ayuno||'no')}</div>
+   ${AYUNOS[c.ayuno]?`<label class="fld" style="min-width:170px"><span>Primera comida del día a las</span><input class="txt" type="time" step="900" data-f="ventanaIni" value="${esc(c.ventanaIni||'13:00')}"></label>`:''}
+   <div><div class="muted" style="font-size:12.5px;margin-bottom:4px">Comidas al día</div>${seg('comidas',comidasPermitidas(c).map(n=>[n,String(n)]),Math.min(Math.max(+c.comidas,comidasPermitidas(c)[0]),comidasPermitidas(c).at(-1)))}</div></div>
+  ${AYUNOS[c.ayuno]?`<div class="note" id="ventTxt">${esc(ventTxt(c))}</div>`:''}
   <h3>Alergias e intolerancias</h3>${chips('alergias',ALERG,c.alergias,'x')}
   <h3>Alimentos que no le gustan (toca para quitarlos de la dieta)</h3>
   ${foodGroups.map(([r,t])=>`<details class="exgrp"><summary>${t} <span class="muted">(${FOODS.filter(f=>f.r===r&&c.disgustos.includes(f.id)).length} quitados)</span></summary>${chips('disgustos',FOODS.filter(f=>f.r===r).map(f=>[f.id,f.n]),c.disgustos,'x')}</details>`).join('')}</div>
@@ -923,10 +957,11 @@ function viewDieta(c,m,R){
    <div class="stat ${Math.abs(N.weekly)>1?'warn':'info'}"><div class="l">Cambio de peso esperado</div><div class="v">${N.weekly>0?'+':''}${fmt(N.weekly,2)} kg</div><div class="d">por semana (orientativo)</div></div>
   </div>
   ${notesHTML(N.alerts,'warn')}${notesHTML(R.alerts.filter(a=>/Diabetes|renal|Embarazo|visceral|Insulina/i.test(a)),'bad')}${notesHTML(R.notesD)}
+  ${(()=>{const A=ayunoInfo(c,m);return notesHTML(A.alerts,'bad')+notesHTML(A.notes,'ok')})()}
   <div class="note">Pesos de arroz, pasta, legumbres y cereales en <b>crudo</b>; carne y pescado en crudo y limpios. Cocinar a la plancha, horno, vapor o guiso con poco aceite (el aceite ya está contado).</div></div>
  ${favCard(c)}
  <div class="card"><div class="tabs noprint" style="margin-bottom:12px">${DIAS.map((n,i)=>`<button data-day="${i}" class="${S.dietDay===i?'on':''}">${n}</button>`).join('')}</div>
-  <div class="cols2"><div>${d.meals.map(ml=>`<div class="meal"><div class="meal-h"><b>${ml.name}${ml.post?' · post-entreno':''}</b><span>${fmt(ml.tot.k)} kcal · P ${fmt(ml.tot.p)} · H ${fmt(ml.tot.c)} · G ${fmt(ml.tot.f)}</span></div>
+  <div class="cols2"><div>${d.meals.map(ml=>`<div class="meal"><div class="meal-h"><b>${ml.time?`<span class="muted" style="font-weight:600">${ml.time}</span> · `:''}${ml.name}${ml.post?' · post-entreno':''}</b><span>${fmt(ml.tot.k)} kcal · P ${fmt(ml.tot.p)} · H ${fmt(ml.tot.c)} · G ${fmt(ml.tot.f)}</span></div>
    ${ml.items.map(i=>`<div class="food"><span>${esc(i.f.n)}</span><span>${qty(i)}</span></div>`).join('')||'<span class="muted">Sin opciones compatibles: revisa las exclusiones.</span>'}</div>`).join('')}</div>
   <div><h3 style="margin-top:0">Total de ${DIAS[S.dietDay]}</h3><div class="bars">${bar('Calorías',d.tot.k,N.kcal,'kcal')}${bar('Proteína',d.tot.p,N.prot,'g')}${bar('Hidratos',d.tot.c,N.carb,'g')}${bar('Grasas',d.tot.f,N.fat,'g')}</div>
   <p class="disclaimer">Las barras en naranja indican una desviación de más del 12%: ocurre cuando las exclusiones dejan pocas opciones. Pulsa "Generar otro menú" o ajusta cantidades a mano.</p></div></div></div>
@@ -1070,6 +1105,7 @@ document.addEventListener('input',e=>{
  update(t.dataset.f,t.type==='number'?(t.value===''?'':+t.value):t.value);
  const c=cur();
  if(t.dataset.f==='nombre'){$('#ttl').textContent=c.nombre;renderSide()}
+ if(t.dataset.f==='ventanaIni'){const vt=$('#ventTxt');if(vt)vt.textContent=ventTxt(c)}
  if(t.dataset.f==='nacimiento'){syncAge(c);save();const et=$('#edadTxt');if(et)et.innerHTML=edadTxt(c);const bd=$('.top .badge');if(bd)bd.textContent=`${c.sexo==='M'?'Mujer':'Hombre'} · ${c.edad} años`;renderSide()}
  const live=$('#live');if(live)live.innerHTML=statsHTML(analysis(c,metrics(c)));
 });
@@ -1088,6 +1124,7 @@ document.addEventListener('click',e=>{
  if(d.day){S.dietDay=+d.day;renderMain();return}
  if(d.set&&c){let v=d.v;if(['dias','comidas','trimestre'].includes(d.set))v=+v;c[d.set]=v;save();
   if(d.set==='sexo'){if(c.sexo==='H'&&c.enfoque==='gluteos')c.enfoque='equilibrado';render();return}
+  if(d.set==='ayuno'||d.set==='comidas'){const ok=comidasPermitidas(c);if(d.set==='ayuno'&&c.ayuno!=='no')c.comidas=Math.min(3,ok.at(-1));else if(!ok.includes(+c.comidas))c.comidas=4;save();const y=scrollY;render();scrollTo(0,y);return}
   b.parentElement.querySelectorAll('[data-set]').forEach(x=>x.classList.toggle('on',x===b));
   if(d.set==='objetivo'){renderSide();$('.top .badge:last-of-type').textContent=OBJ_N[v]}
   return}

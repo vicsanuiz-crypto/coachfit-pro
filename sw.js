@@ -1,5 +1,5 @@
 // Service worker: la app funciona sin conexión y se actualiza sola cuando hay versión nueva.
-const CACHE = 'coachfit-v2';
+const CACHE = 'coachfit-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

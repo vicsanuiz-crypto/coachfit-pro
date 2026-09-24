@@ -146,6 +146,7 @@ details.exgrp .chips{margin:8px 0 4px}
 </div>
 <input type="file" id="importFile" accept="application/json" hidden>
 <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" hidden>
+<input type="file" id="labelFile" accept="image/*" hidden>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1001,7 +1002,7 @@ function viewDieta(c,m,R){
  ${supCard(c,m,R,N)}`;
 }
 const ROLES=[['prot','Proteína (carne, pescado, huevo, legumbre…)'],['carb','Hidrato (cereal, pan, tubérculo…)'],['grasa','Grasa (aceite, frutos secos…)'],['veg','Verdura'],['fruta','Fruta']];
-const CONTIENE=[['carne','Carne'],['pescado','Pescado'],['marisco','Marisco'],['huevo','Huevo'],['lacteo','Lácteo'],['gluten','Gluten'],['frutos_secos','Frutos secos'],['soja','Soja']];
+const CONTIENE=[['carne','Carne'],['pescado','Pescado'],['marisco','Marisco'],['huevo','Huevo'],['lacteo','Lácteo'],['gluten','Gluten'],['frutos_secos','Frutos secos'],['cacahuete','Cacahuete'],['soja','Soja']];
 function favCard(c){
  const favs=(c.favoritos||[]).map(id=>foodById(c,id)).filter(Boolean),own=c.alimentosExtra||[],fijos=c.fijos||[];
  const nm=esc(S.nfName||'');
@@ -1021,7 +1022,11 @@ function favCard(c){
    <label class="fld"><span>En qué comida</span><select id="ff_com">${COMIDA_OPTS.filter(o=>o[0]==='auto'||planKeys.has(o[0])).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label></div>
   <div style="margin-top:10px"><div class="muted" style="font-size:12.5px;margin-bottom:6px">Días</div>${DIAS.map((n,i)=>cb('ff_d'+i,n,true)).join('')}</div>
   <p class="disclaimer" style="margin-top:4px">Referencias: 1 huevo ≈ 60 g · 1 rebanada de pan ≈ 30 g · 1 yogur ≈ 125 g · 1 pieza de fruta ≈ 150-200 g · 1 cucharada de aceite ≈ 10 g.</p>
-  <details class="exgrp" style="margin-top:10px" ${S.nfOpen?'open':''}><summary>¿No está en la lista? Añade sus datos nutricionales</summary>
+  <details class="exgrp" style="margin-top:10px" ${S.nfOpen?'open':''}><summary>¿No está en la lista? Añade sus datos (a mano o con una foto de la etiqueta)</summary>
+   <div class="row" style="margin-top:10px"><button class="primary" data-act="labelphoto">Foto de la etiqueta</button>
+    <label class="fld" style="min-width:180px"><span>o código de barras</span><input class="txt" id="nf_ean" inputmode="numeric" placeholder="Ej.: 8410000000000"></label>
+    <button class="ghost" data-act="offsearch">Buscar producto</button></div>
+   <p class="disclaimer" id="ocrStatus">Haz una foto nítida y recta de la tabla de información nutricional; si en la foto sale también el código de barras, mejor. La foto se lee en el propio dispositivo: solo el número del código de barras se consulta en Open Food Facts.</p>
    <div class="grid" style="margin-top:10px">
    <label class="fld"><span>Tipo</span><select id="nf_r">${ROLES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
    ${[['nf_k','Calorías','kcal'],['nf_p','Proteína','g'],['nf_c','Hidratos','g'],['nf_f','Grasas','g']].map(([id,l,u])=>`<label class="fld"><span>${l} por 100 g</span><div class="inp"><input type="number" inputmode="decimal" step="0.1" min="0" id="${id}"><em>${u}</em></div></label>`).join('')}</div>
@@ -1056,6 +1061,85 @@ function addFood(c){
  if(mode==='fav'){c.favoritos=c.favoritos||[];if(!c.favoritos.includes(f.id))c.favoritos.push(f.id);if(!w)toast(f.n+' añadido a favoritos')}
  else{c.fijos=c.fijos||[];c.fijos.push({id:f.id,g:Math.round(g),dias,comida:com});if(!w)toast(`${f.n}: ${Math.round(g)} g ${dias.length===7?'todos los días':'los '+dias.map(i=>DIAS_C[i]).join(', ')}`)}
  S.nfOpen=false;S.nfName='';save();renderMain();
+}
+
+/* ---- Lectura de etiquetas: código de barras (Open Food Facts) y foto (OCR) ---- */
+const LIBS={};
+function loadScript(src){return LIBS[src]||(LIBS[src]=new Promise((res,rej)=>{const el=document.createElement('script');el.src=src;el.onload=res;el.onerror=()=>{delete LIBS[src];rej(new Error('sin conexión para descargar el lector'))};document.head.appendChild(el)}))}
+function ocrMsg(t,cls=''){const e=$('#ocrStatus');if(e){e.textContent=t;e.style.color=cls==='bad'?'var(--bad)':cls==='ok'?'var(--ok)':''}}
+async function imgToCanvas(file,max=1800){const url=URL.createObjectURL(file);try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('la imagen no se puede abrir'));i.src=url});
+ const k=Math.min(1,max/Math.max(img.width,img.height)),cv=document.createElement('canvas');cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);return cv}finally{URL.revokeObjectURL(url)}}
+function enhance(cv){const c2=document.createElement('canvas');c2.width=cv.width;c2.height=cv.height;const g=c2.getContext('2d');g.drawImage(cv,0,0);const d=g.getImageData(0,0,c2.width,c2.height),a=d.data;
+ for(let i=0;i<a.length;i+=4){let y=.299*a[i]+.587*a[i+1]+.114*a[i+2];y=(y-128)*1.5+128;y=y<0?0:y>255?255:y;a[i]=a[i+1]=a[i+2]=y}g.putImageData(d,0,0);return c2}
+async function findBarcode(cv){
+ try{if('BarcodeDetector' in window){const r=await new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}).detect(cv);if(r[0])return r[0].rawValue}}catch(e){}
+ try{await loadScript('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js');const Z=window.ZXing,h=new Map();h.set(Z.DecodeHintType.TRY_HARDER,true);
+  h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.EAN_13,Z.BarcodeFormat.EAN_8,Z.BarcodeFormat.UPC_A,Z.BarcodeFormat.UPC_E]);
+  const rd=new Z.MultiFormatReader();rd.setHints(h);return rd.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)))).getText()}catch(e){}
+ return null;
+}
+async function offLookup(code){
+ const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,product_name_es,brands,nutriments,allergens_tags`).then(r=>r.json());
+ if(r.status!==1||!r.product)return null;const pr=r.product,n=pr.nutriments||{};
+ let k=n['energy-kcal_100g'];if(k==null&&n['energy_100g']!=null)k=n['energy_100g']/4.184;if(k==null)return null;
+ const AL={'en:milk':'lacteo','en:gluten':'gluten','en:nuts':'frutos_secos','en:peanuts':'cacahuete','en:eggs':'huevo','en:fish':'pescado','en:crustaceans':'marisco','en:molluscs':'marisco','en:soybeans':'soja'};
+ return{name:(()=>{const nm=(pr.product_name_es||pr.product_name||'').trim(),br=(pr.brands||'').split(',')[0].trim();return br&&!nm.toLowerCase().includes(br.toLowerCase())?(nm+' '+br).trim():nm})(),k:+k,p:+(n.proteins_100g||0),c:+(n.carbohydrates_100g||0),f:+(n.fat_100g||0),tags:[...new Set((pr.allergens_tags||[]).map(a=>AL[a]).filter(Boolean))]};
+}
+function parseLabel(txt){
+ const t=txt.toLowerCase().replace(/(\d)\s*,\s*(\d)/g,'$1.$2'),lines=t.split(/\n+/);
+ // Devuelve el número tras la etiqueta y si le sigue la unidad "g" (si no, la "g" pudo leerse como un 9)
+ const tok=(re,ex)=>{for(const l of lines){const m=l.match(re);if(!m||(ex&&ex.test(l)))continue;const n=l.slice(m.index+m[0].length).match(/(\d{1,4}(?:\.\d{1,2})?)\s*(m?g\b)?/);if(n)return{s:n[1],g:!!n[2]}}return null};
+ const cands=x=>{if(!x)return[[null,0]];const out=[],push=(v,pen)=>{if(isFinite(v)&&v>=0&&v<=100)out.push([v,pen])};
+  const two=/\.\d9$/.test(x.s)&&!x.g;push(parseFloat(x.s),two?1:0);
+  if(!x.g&&/9$/.test(x.s)){const s2=x.s.slice(0,-1).replace(/\.$/,'');if(s2){push(parseFloat(s2),two?0:1);if(!s2.includes('.')&&s2.length>=2)push(parseFloat(s2.slice(0,-1)+'.'+s2.slice(-1)),1.5)}}
+  if(!out.length&&!x.s.includes('.')&&x.s.length>=2)push(parseFloat(x.s.slice(0,-1)+'.'+x.s.slice(-1)),2);
+  return out.length?out:[[null,0]]};
+ let k=null;
+ for(const l of lines){if(/kj/.test(l)&&/kcal/.test(l)){const m=l.match(/(\d{2,4}(?:\.\d)?)\s*(?:kj)?\s*\/\s*(\d{1,3}(?:\.\d)?)/);if(m){k=parseFloat(m[2]);break}}}
+ if(k==null){const m=t.match(/(\d{1,3}(?:\.\d)?)\s*k\s*c\s*a\s*[l1i]/);if(m)k=parseFloat(m[1])}
+ if(k==null){const m=t.match(/(\d{2,4}(?:\.\d)?)\s*k\s*j/);if(m)k=Math.round(parseFloat(m[1])/4.184)}
+ if(!(k>0&&k<=900))k=null;
+ const F=cands(tok(/grasas?|l[ií]pidos|\bfat\b/,/saturad|satur|trans|monoinsat|poliinsat/)),C=cands(tok(/hidratos de carbono|hidratos|carbohidratos|carbohydrate/,/az[uú]car/)),P=cands(tok(/prote[ií]nas?|protein/));
+ let best=null;
+ for(const [p,pp] of P)for(const [c,pc] of C)for(const [f,pf] of F){
+  const pen=pp+pc+pf,est=(p||0)*4+(c||0)*4+(f||0)*9,full=p!=null&&c!=null&&f!=null;
+  const sc=(k&&full?Math.abs(est-k)/Math.max(k,50):0)+pen*.03;
+  if(!best||sc<best.sc)best={sc,p,c,f};
+ }
+ const v={k,p:best.p,c:best.c,f:best.f};
+ v.found=['k','p','c','f'].filter(x=>v[x]!=null).length;
+ if(v.k==null&&v.p!=null&&v.c!=null&&v.f!=null)v.k=Math.round(v.p*4+v.c*4+v.f*9);
+ return v;
+}
+function guessRole(v){const kc=v.k||1;if((v.p||0)*4/kc>=.35)return'prot';if((v.f||0)*9/kc>=.6)return'grasa';if(v.k<45&&(v.c||0)<10)return'veg';return'carb'}
+function fillNF(v){
+ const set=(id,x)=>{const e=document.getElementById(id);if(e&&x!=null&&isFinite(x))e.value=Math.round(x*10)/10};
+ set('nf_k',v.k);set('nf_p',v.p);set('nf_c',v.c);set('nf_f',v.f);
+ const r=document.getElementById('nf_r');if(r&&v.k)r.value=guessRole(v);
+ (v.tags||[]).forEach(t=>{const e=document.getElementById('nf_t_'+t);if(e)e.checked=true});
+ const fi=document.getElementById('favIn');if(v.name&&fi&&!fi.value.trim())fi.value=v.name;
+}
+async function lookupCode(code){
+ ocrMsg('Buscando el código '+code+'…');
+ const v=await offLookup(code);
+ if(!v){ocrMsg('Ese código no está en Open Food Facts. Haz una foto de la tabla nutricional o escribe los valores.','bad');return false}
+ fillNF(v);ocrMsg(`Datos de "${v.name||'producto'}" cargados (por 100 g). Revísalos, marca en qué comidas encaja y pulsa "Añadir a su dieta".`,'ok');return true;
+}
+async function processLabel(file){
+ try{
+  ocrMsg('Abriendo la foto…');const cv=await imgToCanvas(file);
+  ocrMsg('Buscando el código de barras…');const code=await findBarcode(cv);
+  if(code){const e=$('#nf_ean');if(e)e.value=code;try{if(await lookupCode(code))return}catch(e){}}
+  ocrMsg('Leyendo la tabla nutricional… (la primera vez tarda más porque descarga el lector de texto)');
+  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  const w=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')ocrMsg('Leyendo la tabla nutricional… '+Math.round(m.progress*100)+'%')}});
+  const {data:{text}}=await w.recognize(enhance(cv));await w.terminate();
+  const v=parseLabel(text);
+  if(v.found<2){ocrMsg('No he podido leer bien la tabla. Prueba con una foto más cerca, recta, sin reflejos y con buena luz, o escribe los valores a mano.','bad');return}
+  fillNF(v);
+  const miss=[['k','calorías'],['p','proteínas'],['c','hidratos'],['f','grasas']].filter(([k])=>v[k]==null).map(x=>x[1]);
+  ocrMsg(`Valores leídos de la foto (por 100 g)${miss.length?'; falta: '+miss.join(', '):''}. Compruébalos con la etiqueta antes de guardar: la lectura automática puede confundir algún número.`,miss.length?'':'ok');
+ }catch(e){ocrMsg('No se pudo procesar la foto ('+(e.message||e)+'). La primera vez necesita conexión a internet.','bad')}
 }
 
 /* ---- Suplementos ---- */
@@ -1165,6 +1249,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
  const t=e.target;
+ if(t.id==='labelFile'){if(t.files[0])processLabel(t.files[0]);t.value='';return}
  if(t.id==='logoFile'){if(t.files[0])loadLogo(t.files[0]);t.value='';return}
  if(t.id==='importFile'){const file=t.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!Array.isArray(d.clients))throw 0;
   const ids=new Set(S.clients.map(c=>c.id));let n=0;d.clients.forEach(c=>{if(c&&c.id&&!ids.has(c.id)){S.clients.push({...newClient(c.sexo==='H'?'H':'M'),...c});n++}});if(d.brand&&!Object.keys(S.brand||{}).length)S.brand=d.brand;save();render();toast(n+' clientes importados')}catch(err){toast('Archivo no válido')}t.value=''};rd.readAsText(file);return}
@@ -1206,6 +1291,9 @@ document.addEventListener('click',e=>{
   case'volver':S.view='cliente';render();toast('Marca guardada');break;
   case'logo':document.getElementById('logoFile').click();break;
   case'nologo':delete S.brand.logo;save();render();break;
+  case'labelphoto':document.getElementById('labelFile').click();break;
+  case'offsearch':{const code=($('#nf_ean').value||'').replace(/\D/g,'');if(code.length<8){toast('Escribe el número del código de barras (8 a 13 cifras)');break}
+   lookupCode(code).catch(()=>ocrMsg('No se pudo consultar: revisa la conexión a internet.','bad'));break}
   case'delfijo':if(c){(c.fijos||[]).splice(+d.v,1);save();renderMain()}break;
   case'addfav':{if(!c)break;const raw=($('#favIn').value||'').trim(),q=raw.toLowerCase();if(!q){toast('Escribe un alimento');break}
    const f=FOODS.find(x=>x.n.toLowerCase()===q)||FOODS.find(x=>x.n.toLowerCase().includes(q));

@@ -88,7 +88,7 @@ main{padding:22px 28px 70px;max-width:1150px;width:100%}
 .danger{background:transparent;border:1px solid var(--bad);color:var(--bad);border-radius:10px;padding:8px 14px;font-size:13.5px}
 .exrow{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
 .exrow:last-child{border-bottom:0}
-.exn{flex:1;min-width:0}.exn b{display:block}.exn small{color:var(--muted);font-size:12.5px;display:block}
+.exn{flex:1;min-width:0}.exn b{display:block}.exn small b{display:inline}.exn small{color:var(--muted);font-size:12.5px;display:block}
 .num{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12.5px;flex:none}
 .dose{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:330px}
 .pill{background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:2px 8px;font-size:12.5px;white-space:nowrap}
@@ -414,9 +414,12 @@ let S={clients:[],active:null,tab:'ficha',filter:'todos',q:'',dietDay:0,brand:{}
 function load(){try{const d=JSON.parse(localStorage.getItem(STORE));if(d&&Array.isArray(d.clients)){S.clients=d.clients;S.active=d.active;S.brand=d.brand||{}}}catch(e){}}
 function save(){try{localStorage.setItem(STORE,JSON.stringify({clients:S.clients,active:S.active,brand:S.brand}))}catch(e){toast('No se pudo guardar: el almacenamiento del navegador está lleno o bloqueado')}}
 const today=()=>new Date().toISOString().slice(0,10);
+function edadDe(n){if(!n)return null;const b=new Date(n+'T12:00:00'),t=new Date();if(isNaN(b)||b>t)return null;let a=t.getFullYear()-b.getFullYear();const md=t.getMonth()-b.getMonth();if(md<0||(md===0&&t.getDate()<b.getDate()))a--;return a>=0&&a<120?a:null}
+function syncAge(c){const a=edadDe(c.nacimiento);if(a!==null)c.edad=a}
+function nacDefault(){const d=new Date();d.setFullYear(d.getFullYear()-30);return d.toISOString().slice(0,10)}
 function newClient(sexo){return{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),nombre:sexo==='M'?'Nueva clienta':'Nuevo cliente',sexo,
  edad:30,altura:sexo==='M'?163:176,peso:sexo==='M'?62:78,cintura:'',grasa:'',musculo:'',agua:'',visceral:'',fechaMed:today(),
- trabajo:'sedentario',sueno:7,estres:'medio',experiencia:'principiante',dias:3,minutos:60,lugar:'gimnasio',hora:'tarde',
+ nacimiento:nacDefault(),favoritos:[],alimentosExtra:[],suplementos:[],trabajo:'sedentario',sueno:7,estres:'medio',experiencia:'principiante',dias:3,minutos:60,lugar:'gimnasio',hora:'tarde',
  objetivo:'recomposicion',enfoque:sexo==='M'?'gluteos':'equilibrado',ritmo:'moderado',biotipo:'',
  condiciones:[],trimestre:1,lesiones:[],discapacidad:'ninguna',medicacion:[],notas:'',
  dieta:'omnivora',alergias:[],disgustos:[],comidas:4,maquinasNo:[],ejerciciosNo:[],historial:[],seed:1,swaps:{}}}
@@ -678,10 +681,14 @@ function poolOf(item,type,c,R){
  let ids=item.pool||FOODS.filter(f=>f.r===item.r&&f.m.includes(type==='N'?'S':type)).map(f=>f.id);
  let pool=ids.map(id=>FOODI[id]).filter(f=>f&&foodOk(f,c,R));
  // Omnívoros/pescetarianos/vegetarianos: las alternativas vegetales solo si no queda otra opción
- if(c.dieta==='omnivora'||c.dieta==='pescetariana'){const pref=pool.filter(f=>!f.t.has('alt'));if(pref.length)pool=pref}
+ if(c.dieta==='omnivora'||c.dieta==='pescetariana'){const pref=pool.filter(f=>!f.t.has('alt')||isFav(c,f));if(pref.length)pool=pref}
+ if(item.r!=='lac'&&!(item.r==='veg'&&item.pool))pool=pool.concat(customFoods(c).filter(f=>f.r===item.r&&f.m.includes(type)&&foodOk(f,c,R)));
  return pool;
 }
 const pickR=(arr,rng)=>arr[Math.floor(rng()*arr.length)];
+function customFoods(c){return(c.alimentosExtra||[]).map(x=>({...x,t:new Set(x.tags||[]),custom:true}))}
+const isFav=(c,f)=>!!f.custom||(c.favoritos||[]).includes(f.id);
+function pickW(pool,rng,c){const w=pool.map(f=>isFav(c,f)?4:1);let r=rng()*w.reduce((a,b)=>a+b,0);for(let i=0;i<pool.length;i++){r-=w[i];if(r<=0)return pool[i]}return pool[pool.length-1]}
 function buildMeal(meal,tg,rng,c,R,usedP,deficit){
  const [name,type]=meal;
  const styles=type==='D'?['avena','tostada','bol']:type==='S'?['s_lac','s_tost','s_batido']:type==='N'?['recena']:['main'];
@@ -693,7 +700,7 @@ function buildMeal(meal,tg,rng,c,R,usedP,deficit){
    let pool=poolOf(it,type==='N'?'S':type,c,R).filter(f=>!usedHere.has(f.id));
    if(it.r==='prot'&&type==='P'){const np=pool.filter(f=>!usedP.has(f.id));if(np.length)pool=np}
    if(!pool.length){if(it.r==='prot'){ok=false;break}continue}
-   const f=pickR(pool,rng);usedHere.add(f.id);
+   const f=pickW(pool,rng,c);usedHere.add(f.id);
    let g=it.g||(it.r==='fruta'?(f.u?f.u[0]:150):it.r==='veg'?(deficit&&name==='Cena'?200:150):null);
    res.push({f,g,fixed:!!g});
   }
@@ -740,7 +747,7 @@ function qty(i){const f=i.f;if(f.u){const n=i.g/f.u[0];const nr=Math.round(n*2)/
 
 /* ================= RENDER ================= */
 const $=s=>document.querySelector(s);
-function render(){const c=cur();document.body.dataset.sexo=c?c.sexo:'';renderSide();renderMain()}
+function render(){const c=cur();if(c)syncAge(c);document.body.dataset.sexo=c?c.sexo:'';renderSide();renderMain()}
 function renderSide(){
  const q=S.q.toLowerCase();
  const list=S.clients.filter(c=>(S.filter==='todos'||c.sexo===S.filter)&&c.nombre.toLowerCase().includes(q));
@@ -814,6 +821,7 @@ const seg=(field,opts,val,cls='')=>`<div class="seg ${cls}">${opts.map(([v,l])=>
 const chips=(field,opts,arr,x='')=>`<div class="chips">${opts.map(([v,l])=>`<button type="button" class="chip ${x} ${(arr||[]).includes(v)?'on':''}" data-tog="${field}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
 const num=(f,l,v,u,a='')=>`<label class="fld"><span>${l}</span><div class="inp"><input type="number" inputmode="decimal" data-f="${f}" value="${esc(v)}" ${a}>${u?`<em>${u}</em>`:''}</div></label>`;
 const sel=(f,l,opts,v)=>`<label class="fld"><span>${l}</span><select data-f="${f}">${opts.map(([k,t])=>`<option value="${k}" ${String(v)===String(k)?'selected':''}>${t}</option>`).join('')}</select></label>`;
+function edadTxt(c){const a=edadDe(c.nacimiento);return a!==null?`Edad: <b>${a} años</b> (se actualiza sola)`:`Sin fecha válida: se usa la edad guardada (${esc(c.edad)} años)`}
 function statsHTML(list){return`<div class="stats">${list.map(a=>`<div class="stat ${a.s}"><div class="l">${a.l}</div><div class="v">${a.v}</div><div class="d">${a.d}</div></div>`).join('')}</div>`}
 function viewFicha(c,m){
  const enf=c.sexo==='M'?[['gluteos','Glúteos y piernas'],['equilibrado','Equilibrado'],['core','Abdomen y core'],['superior','Tren superior']]:[['superior','Tren superior'],['equilibrado','Equilibrado'],['core','Abdomen y core'],['gluteos','Glúteos y piernas']];
@@ -824,7 +832,7 @@ function viewFicha(c,m){
   <div class="row" style="margin:0 0 14px">${seg('sexo',[['M','Mujer'],['H','Hombre']],c.sexo,'sexseg')}</div>
   <div class="grid">
    <label class="fld" style="grid-column:span 2"><span>Nombre</span><input class="txt" type="text" data-f="nombre" value="${esc(c.nombre)}"></label>
-   ${num('edad','Edad',c.edad,'años','min="10" max="100"')}${num('altura','Altura',c.altura,'cm')}${num('peso','Peso',c.peso,'kg','step="0.1"')}${num('cintura','Cintura (opcional)',c.cintura,'cm','step="0.5"')}
+   <label class="fld"><span>Fecha de nacimiento</span><input class="txt" type="date" data-f="nacimiento" value="${esc(c.nacimiento||'')}" max="${today()}"><small class="muted" id="edadTxt" style="font-size:12px">${edadTxt(c)}</small></label>${num('altura','Altura',c.altura,'cm')}${num('peso','Peso',c.peso,'kg','step="0.1"')}${num('cintura','Cintura (opcional)',c.cintura,'cm','step="0.5"')}
    ${sel('trabajo','Actividad diaria (sin contar entreno)',[['sedentario','Sedentaria (oficina, sentado)'],['de_pie','De pie / camina bastante'],['fisico','Trabajo físico']],c.trabajo)}
    ${num('sueno','Horas de sueño',c.sueno,'h','step="0.5"')}
    ${sel('estres','Nivel de estrés',[['bajo','Bajo'],['medio','Medio'],['alto','Alto']],c.estres)}
@@ -901,8 +909,8 @@ function viewDieta(c,m,R){
  const N=nutrition(c,m,R),days=genDiet(c,m,R,N),d=days[S.dietDay]||days[0];
  const pct=x=>r0(x/N.kcal*100);
  const bar=(l,v,t,u)=>{const p=Math.min(130,v/t*100);return`<div><div class="barl"><span>${l}</span><span>${fmt(v)} / ${fmt(t)} ${u}</span></div><div class="bar"><i style="width:${Math.min(100,p)}%;${Math.abs(p-100)>12?'background:var(--warn)':''}"></i></div></div>`};
- const shop={};days.forEach(dd=>dd.meals.forEach(ml=>ml.items.forEach(i=>{shop[i.f.id]=(shop[i.f.id]||0)+i.g})));
- const shopList=Object.entries(shop).map(([id,g])=>[FOODI[id],g]).sort((a,b)=>a[0].r.localeCompare(b[0].r));
+ const shop={};days.forEach(dd=>dd.meals.forEach(ml=>ml.items.forEach(i=>{const o=shop[i.f.id]=shop[i.f.id]||[i.f,0];o[1]+=i.g})));
+ const shopList=Object.values(shop).sort((a,b)=>a[0].r.localeCompare(b[0].r));
  return`<div class="card"><div class="dayhead"><div><h2>Necesidades diarias</h2><p class="sub">Metabolismo basal por ${N.katch?'Katch-McArdle (usa tu % de grasa)':'Mifflin-St Jeor (sin % de grasa medido)'} · ${N.adj<0?'déficit':'superávit'} del ${fmt(Math.abs(N.adj*100))}%</p></div>
   <div class="noprint" style="display:flex;gap:8px"><button class="ghost" data-act="regen">Generar otro menú</button><button class="ghost" data-act="print">Imprimir / PDF</button></div></div>
   <div class="stats">
@@ -916,6 +924,7 @@ function viewDieta(c,m,R){
   </div>
   ${notesHTML(N.alerts,'warn')}${notesHTML(R.alerts.filter(a=>/Diabetes|renal|Embarazo|visceral|Insulina/i.test(a)),'bad')}${notesHTML(R.notesD)}
   <div class="note">Pesos de arroz, pasta, legumbres y cereales en <b>crudo</b>; carne y pescado en crudo y limpios. Cocinar a la plancha, horno, vapor o guiso con poco aceite (el aceite ya está contado).</div></div>
+ ${favCard(c)}
  <div class="card"><div class="tabs noprint" style="margin-bottom:12px">${DIAS.map((n,i)=>`<button data-day="${i}" class="${S.dietDay===i?'on':''}">${n}</button>`).join('')}</div>
   <div class="cols2"><div>${d.meals.map(ml=>`<div class="meal"><div class="meal-h"><b>${ml.name}${ml.post?' · post-entreno':''}</b><span>${fmt(ml.tot.k)} kcal · P ${fmt(ml.tot.p)} · H ${fmt(ml.tot.c)} · G ${fmt(ml.tot.f)}</span></div>
    ${ml.items.map(i=>`<div class="food"><span>${esc(i.f.n)}</span><span>${qty(i)}</span></div>`).join('')||'<span class="muted">Sin opciones compatibles: revisa las exclusiones.</span>'}</div>`).join('')}</div>
@@ -923,7 +932,108 @@ function viewDieta(c,m,R){
   <p class="disclaimer">Las barras en naranja indican una desviación de más del 12%: ocurre cuando las exclusiones dejan pocas opciones. Pulsa "Generar otro menú" o ajusta cantidades a mano.</p></div></div></div>
  <div class="card"><h2>Lista de la compra semanal</h2><p class="sub">Cantidades totales para los 7 días.</p>
   <div class="tscroll"><table class="t"><tr><th>Alimento</th><th>Cantidad semanal</th></tr>${shopList.map(([f,g])=>`<tr><td>${esc(f.n)}</td><td>${g>=1000?fmt(g/1000,1)+(f.r==='lac'?' L':' kg'):g+(f.r==='lac'?' ml':' g')}</td></tr>`).join('')}</table></div>
-  <p class="disclaimer">Plan orientativo generado automáticamente. En caso de enfermedad (diabetes, enfermedad renal, embarazo, etc.) debe revisarlo un dietista-nutricionista o el médico.</p></div>`;
+  <p class="disclaimer">Plan orientativo generado automáticamente. En caso de enfermedad (diabetes, enfermedad renal, embarazo, etc.) debe revisarlo un dietista-nutricionista o el médico.</p></div>
+ ${supCard(c,m,R,N)}`;
+}
+const ROLES=[['prot','Proteína (carne, pescado, huevo, legumbre…)'],['carb','Hidrato (cereal, pan, tubérculo…)'],['grasa','Grasa (aceite, frutos secos…)'],['veg','Verdura'],['fruta','Fruta']];
+const CONTIENE=[['carne','Carne'],['pescado','Pescado'],['marisco','Marisco'],['huevo','Huevo'],['lacteo','Lácteo'],['gluten','Gluten'],['frutos_secos','Frutos secos'],['soja','Soja']];
+function favCard(c){
+ const favs=(c.favoritos||[]).map(id=>FOODI[id]).filter(Boolean),own=c.alimentosExtra||[];
+ const nm=esc(S.nfName||'');
+ const cb=(id,l)=>`<label style="display:inline-flex;gap:5px;align-items:center;font-size:13.5px;margin:0 12px 6px 0"><input type="checkbox" id="${id}">${l}</label>`;
+ return`<div class="card noprint"><h2>Alimentos que le gustan</h2><p class="sub">Aparecen más a menudo en el menú. Si no está en la lista, añádelo como alimento propio con los valores de su etiqueta.</p>
+  <div class="row" style="margin-top:0"><label class="fld" style="flex:1;min-width:200px"><span>Buscar alimento</span><input class="txt" id="favIn" list="foodList" placeholder="Ej.: salmón, avena, gofio…" autocomplete="off"></label><button class="ghost" data-act="addfav">Añadir a favoritos</button></div>
+  <datalist id="foodList">${FOODS.map(f=>`<option value="${esc(f.n)}"></option>`).join('')}</datalist>
+  <div class="chips" style="margin-top:12px">${favs.map(f=>`<button class="chip on" data-act="delfav" data-v="${f.id}" title="Quitar de favoritos">${esc(f.n)} ×</button>`).join('')}
+   ${own.map(f=>`<button class="chip on" data-act="delfood" data-v="${f.id}" title="Borrar alimento propio">${esc(f.n)} (propio) ×</button>`).join('')}
+   ${!favs.length&&!own.length?'<span class="muted" style="font-size:13px">Todavía no hay favoritos.</span>':''}</div>
+  <details class="exgrp" style="margin-top:14px" ${S.nfOpen?'open':''}><summary>Añadir un alimento que no está en la lista</summary>
+   <div class="grid" style="margin-top:10px"><label class="fld" style="grid-column:span 2"><span>Nombre</span><input class="txt" id="nf_n" value="${nm}" placeholder="Ej.: Queso de cabra fresco"></label>
+   <label class="fld"><span>Tipo</span><select id="nf_r">${ROLES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
+   ${[['nf_k','Calorías','kcal'],['nf_p','Proteína','g'],['nf_c','Hidratos','g'],['nf_f','Grasas','g']].map(([id,l,u])=>`<label class="fld"><span>${l} por 100 g</span><div class="inp"><input type="number" inputmode="decimal" step="0.1" min="0" id="${id}"><em>${u}</em></div></label>`).join('')}</div>
+   <h3>¿En qué comidas encaja?</h3><div>${cb('nf_mD','Desayuno')}${cb('nf_mS','Media mañana / merienda')}${cb('nf_mP','Comida / cena')}</div>
+   <h3>Contiene</h3><div>${CONTIENE.map(([v,l])=>cb('nf_t_'+v,l)).join('')}</div>
+   <div class="row"><button class="primary" data-act="addfood">Guardar alimento</button></div></details></div>`;
+}
+function addFood(c){
+ const v=id=>document.getElementById(id),n=v('nf_n').value.trim(),r=v('nf_r').value,num=id=>parseFloat(v(id).value);
+ const k=num('nf_k'),p=num('nf_p')||0,cc=num('nf_c')||0,f=num('nf_f')||0;
+ const m=['D','S','P'].filter(x=>v('nf_m'+x).checked).join('');
+ if(!n)return toast('Escribe el nombre del alimento');
+ if(!(k>0))return toast('Indica las calorías por 100 g (vienen en la etiqueta)');
+ if(p+cc+f>100)return toast('Proteína + hidratos + grasas no pueden sumar más de 100 g');
+ const est=p*4+cc*4+f*9;if(Math.abs(est-k)>Math.max(40,k*.25))return toast(`Revisa los valores: con esos macros saldrían unas ${Math.round(est)} kcal, no ${k}`);
+ if(!m)return toast('Marca en qué comidas encaja');
+ const tags=CONTIENE.map(x=>x[0]).filter(t=>v('nf_t_'+t).checked);if(tags.includes('lacteo'))tags.push('lactosa');
+ c.alimentosExtra=c.alimentosExtra||[];c.alimentosExtra.push({id:'x_'+Date.now().toString(36),n,r,k,p,c:cc,f,m,tags,mx:r==='grasa'?40:r==='carb'?200:250});
+ S.nfOpen=false;S.nfName='';save();renderMain();toast(n+' añadido: aparecerá en el menú');
+}
+
+/* ---- Suplementos ---- */
+const SUPS=[
+ {id:'creatina',n:'Creatina monohidrato',dosis:'3-5 g al día',momento:'Todos los días, a cualquier hora, con una comida'},
+ {id:'proteina',n:'Proteína en polvo',dosis:'20-30 g por toma',momento:'Solo si no llega a la proteína con comida (p. ej. tras entrenar)'},
+ {id:'omega3',n:'Omega-3 (EPA + DHA)',dosis:'1-2 g de EPA+DHA al día',momento:'Con una comida que lleve grasa'},
+ {id:'vitd',n:'Vitamina D3',dosis:'1.000-2.000 UI al día (ajustar con analítica)',momento:'Con la comida principal'},
+ {id:'b12',n:'Vitamina B12',dosis:'25-100 µg al día o 2.000 µg a la semana',momento:'Cualquier momento'},
+ {id:'calcio',n:'Calcio',dosis:'500 mg (solo si la dieta no llega)',momento:'Con comida, separado del hierro'},
+ {id:'hierro',n:'Hierro',dosis:'Según pauta médica',momento:'En ayunas con vitamina C, lejos de lácteos y café'},
+ {id:'magnesio',n:'Magnesio',dosis:'200-400 mg al día',momento:'Por la noche'},
+ {id:'cafeina',n:'Cafeína',dosis:'3 mg por kg de peso',momento:'30-60 min antes de entrenar; nunca después de las 16 h'},
+ {id:'folico',n:'Ácido fólico + yodo',dosis:'Según pauta médica (fólico 400 µg)',momento:'Diario'},
+ {id:'electrolitos',n:'Electrolitos',dosis:'1 toma en sesiones largas o con mucho calor',momento:'Durante el entrenamiento'},
+ {id:'colageno',n:'Colágeno + vitamina C',dosis:'10-15 g',momento:'30-60 min antes de entrenar'},
+ {id:'multi',n:'Multivitamínico',dosis:'1 al día',momento:'Con el desayuno'}];
+const SUPI=Object.fromEntries(SUPS.map(x=>[x.id,x]));
+function supAnalysis(c,m,R,N){
+ const cs=conds(c),has=x=>cs.includes(x),md=c.medicacion||[],veg=c.dieta==='vegana'||c.dieta==='vegetariana';
+ const rec=[],warn={};
+ const W=(id,t)=>(warn[id]=warn[id]||[]).push(t);
+ const add=(id,lvl,why)=>{if(!(warn[id]||[]).some(w=>w.startsWith('No ')))rec.push({id,lvl,why})};
+ // Contraindicaciones y precauciones
+ if(has('renal'))['creatina','proteina','magnesio'].forEach(id=>W(id,'No sin permiso del nefrólogo (enfermedad renal).'));
+ if(has('embarazo')||has('lactancia')){W('creatina','No recomendada en embarazo o lactancia por falta de estudios.');W('cafeina','Máximo 200 mg de cafeína al día en total (café incluido).');W('colageno','Consultar con su médico o matrona.')}
+ if(has('hipertension')||has('cardiopatia')||has('hipertiroidismo'))W('cafeina','No recomendada: sube la tensión y las pulsaciones.');
+ if((+c.sueno&&+c.sueno<6)||c.estres==='alto')W('cafeina','Con poco sueño o estrés alto, mejor evitarla o tomarla solo por la mañana.');
+ if(md.includes('anticoagulantes'))W('omega3','Con anticoagulantes, consultar al médico: a dosis altas puede aumentar el sangrado.');
+ if(md.includes('levotiroxina'))['calcio','hierro','magnesio','multi','proteina'].forEach(id=>W(id,'Separar 4 horas de la levotiroxina.'));
+ if(c.dieta==='vegana')W('proteina','Usar proteína vegetal (guisante, arroz, soja).');else if((c.alergias||[]).includes('lactosa'))W('proteina','Con intolerancia a la lactosa: whey aislada (isolate) o proteína vegetal.');
+ if(veg)W('omega3','En dieta vegetariana o vegana: omega-3 de algas.');
+ if(has('diabetes1')||has('diabetes2'))W('cafeina','Puede alterar la glucosa: probar primero midiendo antes y después.');
+ // Recomendaciones
+ const gCre=['volumen','fuerza','recomposicion','tonificar','definicion','atletico','perder_grasa'].includes(c.objetivo);
+ if(gCre||m.edad>=50||veg)add('creatina','recomendado',[gCre?'Mejora la fuerza y la ganancia de músculo; es el suplemento más estudiado y seguro.':'',m.edad>=50?'Ayuda a conservar músculo con la edad.':'',veg?'En dietas sin carne el efecto es mayor.':''].filter(Boolean).join(' '));
+ if(N.prot/m.peso>=1.6&&!has('renal'))add('proteina','valorar',`Solo por comodidad, si le cuesta llegar a los ${N.prot} g diarios de proteína con comida.`);
+ const noFish=veg||(c.alergias||[]).includes('pescado')||['salmon','sardinas','atun'].every(id=>(c.disgustos||[]).includes(id));
+ if(noFish||has('colesterol')||has('cardiopatia')||has('embarazo'))add('omega3',noFish||has('embarazo')?'recomendado':'valorar',[noFish?'Apenas toma pescado azul.':'',has('colesterol')?'Ayuda a bajar los triglicéridos.':'',has('cardiopatia')?'Beneficio cardiovascular (confirmar con su cardiólogo).':'',has('embarazo')?'El DHA es importante para el bebé.':''].filter(Boolean).join(' '));
+ if(m.edad>=65||has('osteoporosis')||has('menopausia')||c.discapacidad==='silla'||has('embarazo'))add('vitd','recomendado','Clave para el hueso y el músculo; conviene pedir analítica para ajustar la dosis.');
+ if(c.dieta==='vegana')add('b12','recomendado','Imprescindible en dieta vegana: la B12 solo está en alimentos de origen animal.');
+ else if(c.dieta==='vegetariana'||m.edad>=65||md.includes('antidiabeticos'))add('b12','valorar',md.includes('antidiabeticos')?'La metformina reduce la absorción de B12: revisar en analítica.':'Riesgo de niveles bajos: revisar en analítica.');
+ if(has('osteoporosis')||(has('menopausia')&&c.dieta==='vegana'))add('calcio','valorar','Solo si con la dieta no llega a 1.000-1.200 mg al día.');
+ if(has('anemia'))add('hierro','valorar','Solo con analítica y pauta médica.');
+ if(has('embarazo'))add('folico','recomendado','Recomendación estándar en el embarazo (lo pauta su médico).');
+ if(['fuerza','atletico'].includes(c.objetivo))add('cafeina','valorar','Mejora el rendimiento en entrenamientos intensos.');
+ if(has('fibromialgia')||(+c.sueno&&+c.sueno<6)||c.estres==='alto')add('magnesio','valorar','Puede ayudar con la calidad del sueño y los calambres.');
+ if(+c.minutos>=90||md.includes('diureticos'))add('electrolitos','valorar','Sesiones largas o pérdida de líquidos.');
+ if((c.lesiones||[]).length)add('colageno','valorar','Evidencia moderada para tendones y ligamentos durante la recuperación.');
+ return{rec,warn};
+}
+function supCard(c,m,R,N){
+ const {rec,warn}=supAnalysis(c,m,R,N),toma=c.suplementos||[],tomaIds=new Set(toma.map(x=>x.id));
+ const lv={recomendado:['ok','Recomendado'],valorar:['info','Valorar']};
+ return`<div class="card"><h2>Suplementación</h2><p class="sub">Lo que toma ahora y lo que aconseja el programa según su perfil.</p>
+  <h3>Toma actualmente</h3>
+  ${toma.length?toma.map((x,i)=>{const w=warn[x.id]||[];return`<div class="exrow"><div class="exn"><b>${esc(x.n||SUPI[x.id]?.n||x.id)}</b>
+   <div class="grid" style="margin-top:6px"><label class="fld"><span>Dosis</span><input class="txt" data-sup="${i}" data-k="dosis" value="${esc(x.dosis||'')}"></label><label class="fld"><span>Cuándo</span><input class="txt" data-sup="${i}" data-k="momento" value="${esc(x.momento||'')}"></label></div>
+   ${w.map(t=>`<div class="note ${t.startsWith('No ')?'bad':'warn'}">${esc(t)}</div>`).join('')}</div>
+   <button class="swap noprint" data-act="delsup" data-v="${i}">Quitar</button></div>`}).join(''):'<p class="muted" style="font-size:13.5px">No hay suplementos registrados.</p>'}
+  <div class="row noprint"><label class="fld" style="min-width:220px"><span>Registrar suplemento</span><select id="supSel">${SUPS.filter(x=>!tomaIds.has(x.id)).map(x=>`<option value="${x.id}">${esc(x.n)}</option>`).join('')}<option value="otro">Otro…</option></select></label>
+   <label class="fld" style="flex:1;min-width:160px"><span>Nombre (si es otro)</span><input class="txt" id="supOtro" placeholder="Ej.: Beta-alanina"></label><button class="ghost" data-act="addsup">Registrar</button></div>
+  <h3>Aconsejados por el programa</h3>
+  ${rec.length?rec.map(r=>{const s=SUPI[r.id],w=(warn[r.id]||[]);return`<div class="exrow"><div class="exn"><b>${esc(s.n)} <span class="badge" style="background:var(--surface2);color:var(--${lv[r.lvl][0]})">${lv[r.lvl][1]}</span></b>
+   <small>${esc(r.why)}</small><small><b>Dosis:</b> ${esc(s.dosis)} · <b>Cuándo:</b> ${esc(s.momento)}</small>${w.map(t=>`<small>⚠ ${esc(t)}</small>`).join('')}</div>
+   ${tomaIds.has(r.id)?'<span class="pill">Ya lo toma</span>':`<button class="swap noprint" data-act="recsup" data-v="${r.id}">Marcar que lo toma</button>`}</div>`}).join(''):'<p class="muted" style="font-size:13.5px">Con este perfil no hace falta ningún suplemento: la dieta cubre lo necesario.</p>'}
+  <p class="disclaimer">Los suplementos complementan la dieta, no la sustituyen. Ante enfermedad, embarazo o medicación, que los valide su médico.</p></div>`;
 }
 function chartSVG(pts,label,unit,good){
  if(pts.length<1)return'';
@@ -954,12 +1064,13 @@ function update(field,val){const c=cur();if(!c)return;c[field]=val;save()}
 document.addEventListener('input',e=>{
  const t=e.target;
  if(t.dataset.b){S.brand[t.dataset.b]=t.value;save();if(t.dataset.b==='nombre'||t.dataset.b==='negocio')renderSide();return}
+ if(t.dataset.sup!==undefined){const c=cur();const x=c&&(c.suplementos||[])[+t.dataset.sup];if(x){x[t.dataset.k]=t.value;save()}return}
  if(t.id==='q'){S.q=t.value;renderSide();const q=$('#q');q.focus();q.setSelectionRange(q.value.length,q.value.length);return}
  if(!t.dataset.f||t.tagName==='SELECT')return;
  update(t.dataset.f,t.type==='number'?(t.value===''?'':+t.value):t.value);
  const c=cur();
  if(t.dataset.f==='nombre'){$('#ttl').textContent=c.nombre;renderSide()}
- if(t.dataset.f==='edad')renderSide();
+ if(t.dataset.f==='nacimiento'){syncAge(c);save();const et=$('#edadTxt');if(et)et.innerHTML=edadTxt(c);const bd=$('.top .badge');if(bd)bd.textContent=`${c.sexo==='M'?'Mujer':'Hombre'} · ${c.edad} años`;renderSide()}
  const live=$('#live');if(live)live.innerHTML=statsHTML(analysis(c,metrics(c)));
 });
 document.addEventListener('change',e=>{
@@ -980,7 +1091,9 @@ document.addEventListener('click',e=>{
   b.parentElement.querySelectorAll('[data-set]').forEach(x=>x.classList.toggle('on',x===b));
   if(d.set==='objetivo'){renderSide();$('.top .badge:last-of-type').textContent=OBJ_N[v]}
   return}
- if(d.tog&&c){const arr=c[d.tog]=c[d.tog]||[];const i=arr.indexOf(d.v);if(i>=0)arr.splice(i,1);else arr.push(d.v);save();
+ if(d.tog&&c){const arr=c[d.tog]=c[d.tog]||[];const i=arr.indexOf(d.v);if(i>=0)arr.splice(i,1);else arr.push(d.v);
+  if(d.tog==='disgustos'&&i<0)c.favoritos=(c.favoritos||[]).filter(x=>x!==d.v);
+  save();
   if(d.v==='embarazo'){render();return}
   b.classList.toggle('on',i<0);
   const det=b.closest('details');if(det){const s=det.querySelector('summary .muted');if(s)s.textContent=`(${det.querySelectorAll('.chip.on').length} quitados)`}
@@ -1002,10 +1115,24 @@ document.addEventListener('click',e=>{
   case'volver':S.view='cliente';render();toast('Marca guardada');break;
   case'logo':document.getElementById('logoFile').click();break;
   case'nologo':delete S.brand.logo;save();render();break;
+  case'addfav':{if(!c)break;const raw=($('#favIn').value||'').trim(),q=raw.toLowerCase();if(!q){toast('Escribe un alimento');break}
+   const f=FOODS.find(x=>x.n.toLowerCase()===q)||FOODS.find(x=>x.n.toLowerCase().includes(q));
+   if(f){c.favoritos=c.favoritos||[];if(!c.favoritos.includes(f.id))c.favoritos.push(f.id);c.disgustos=(c.disgustos||[]).filter(x=>x!==f.id);save();renderMain();toast(f.n+' añadido a favoritos')}
+   else{S.nfOpen=true;S.nfName=raw;renderMain();toast('No está en la lista: añádelo con sus valores');setTimeout(()=>document.getElementById('nf_k')?.focus(),50)}break}
+  case'delfav':if(c){c.favoritos=(c.favoritos||[]).filter(x=>x!==d.v);save();renderMain()}break;
+  case'delfood':if(c){c.alimentosExtra=(c.alimentosExtra||[]).filter(x=>x.id!==d.v);save();renderMain()}break;
+  case'addfood':if(c)addFood(c);break;
+  case'addsup':{if(!c)break;const v=$('#supSel').value;c.suplementos=c.suplementos||[];
+   if(v==='otro'){const n=$('#supOtro').value.trim();if(!n){toast('Escribe el nombre del suplemento');break}c.suplementos.push({id:'o_'+Date.now().toString(36),n,dosis:'',momento:''})}
+   else{const sp=SUPI[v];c.suplementos.push({id:v,dosis:sp.dosis,momento:sp.momento})}
+   save();renderMain();toast('Suplemento registrado');break}
+  case'recsup':if(c){const sp=SUPI[d.v];c.suplementos=c.suplementos||[];c.suplementos.push({id:d.v,dosis:sp.dosis,momento:sp.momento});save();renderMain();toast(sp.n+' registrado')}break;
+  case'delsup':if(c){c.suplementos.splice(+d.v,1);save();renderMain()}break;
   case'install':if(installEvt){installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null;renderSide()})}break;
  }
 });
 load();
+S.clients.forEach(syncAge);
 if(S.active&&!cur())S.active=S.clients[0]?.id||null;
 render();
 </script>

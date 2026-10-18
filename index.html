@@ -151,8 +151,9 @@ details.exgrp .chips{margin:8px 0 4px}
 
 <script>
 /* ================= DATOS BASE ================= */
-const CONDS=[['diabetes1','Diabetes tipo 1'],['diabetes2','Diabetes tipo 2'],['prediabetes','Prediabetes / resistencia a la insulina'],['hipotiroidismo','Hipotiroidismo / Hashimoto'],['hipertiroidismo','Hipertiroidismo'],['hipertension','Hipertensión'],['cardiopatia','Cardiopatía'],['colesterol','Colesterol o triglicéridos altos'],['higado_graso','Hígado graso'],['renal','Enfermedad renal'],['gota','Gota / ácido úrico alto'],['asma','Asma / EPOC'],['osteoporosis','Osteoporosis / osteopenia'],['artrosis','Artrosis / artritis'],['hernia','Hernia discal'],['escoliosis','Escoliosis'],['fibromialgia','Fibromialgia'],['anemia','Anemia / ferropenia'],['celiaquia','Celiaquía'],['sii','Colon irritable (SII)']];
-const CONDS_M=[['embarazo','Embarazo'],['posparto','Posparto (menos de 12 meses)'],['lactancia','Lactancia'],['menopausia','Menopausia / perimenopausia'],['sop','Ovario poliquístico (SOP)'],['endometriosis','Endometriosis']];
+const CONDS=[['diabetes1','Diabetes tipo 1'],['diabetes2','Diabetes tipo 2'],['prediabetes','Prediabetes / resistencia a la insulina'],['hipotiroidismo','Hipotiroidismo / Hashimoto'],['hipertiroidismo','Hipertiroidismo'],['hipertension','Hipertensión'],['cardiopatia','Cardiopatía'],['colesterol','Colesterol o triglicéridos altos'],['higado_graso','Hígado graso'],['renal','Enfermedad renal'],['gota','Gota / ácido úrico alto'],['asma','Asma / EPOC'],['osteoporosis','Osteoporosis / osteopenia'],['artrosis','Artrosis / artritis'],['hernia','Hernia discal'],['escoliosis','Escoliosis'],['fibromialgia','Fibromialgia'],['anemia','Anemia / ferropenia'],['celiaquia','Celiaquía'],['sii','Colon irritable (SII)'],['incontinencia','Pérdidas de orina / incontinencia'],['dolor_pelvico','Dolor pélvico / suelo pélvico tenso']];
+const CONDS_M=[['embarazo','Embarazo'],['posparto','Posparto (menos de 12 meses)'],['lactancia','Lactancia'],['menopausia','Menopausia / perimenopausia'],['sop','Ovario poliquístico (SOP)'],['endometriosis','Endometriosis'],['prolapso','Prolapso (sensación de bulto o peso)']];
+const CONDS_H=[['disfuncion_erectil','Disfunción eréctil'],['prostatectomia','Cirugía de próstata (prostatectomía)'],['eyaculacion_precoz','Eyaculación precoz']];
 const LESIONES=[['cervical','Cuello / cervical'],['hombro','Hombro'],['codo','Codo'],['muneca','Muñeca / mano'],['lumbar','Zona lumbar'],['cadera','Cadera'],['rodilla','Rodilla'],['tobillo','Tobillo / pie']];
 const DISCAP=[['ninguna','Ninguna'],['silla','Usa silla de ruedas'],['amput_inf','Amputación de miembro inferior'],['amput_sup','Amputación de miembro superior'],['hemiparesia','Hemiparesia / secuelas de ictus'],['visual','Discapacidad visual'],['movilidad','Movilidad reducida / problemas de equilibrio']];
 const MEDS=[['insulina','Insulina'],['antidiabeticos','Antidiabéticos orales'],['betabloqueantes','Betabloqueantes'],['levotiroxina','Levotiroxina'],['anticoagulantes','Anticoagulantes'],['corticoides','Corticoides'],['diureticos','Diuréticos']];
@@ -250,6 +251,7 @@ X('crunch','Crunch abdominal','Core',['corporal'],['cervical','lumbar'],'UF',1,'
 X('rot_banda','Rotaciones de tronco sentado con banda','Core',['bandas'],[],'S',1,'Gira desde el tronco con control.');
 X('elev_piernas','Elevación de piernas colgado','Core',['barra_dominadas'],['lumbar','hombro'],'',3,'Sin balanceo; sube con el abdomen.');
 X('suelo_pelvico','Respiración diafragmática + suelo pélvico','Core profundo',['corporal'],[],'ST',1,'Exhala activando suelo pélvico y transverso abdominal.');
+X('relajacion_pelvica','Respiración y relajación del suelo pélvico','Core profundo',['corporal'],[],'ST',1,'Inhala soltando suelo pélvico y abdomen; nada de apretar.');
 X('equilibrio','Equilibrio a una pierna (con apoyo cerca)','Equilibrio',['corporal'],['tobillo'],'T',1,'Junto a una pared o respaldo; 20-30 s por pierna.');
 X('farmer','Paseo del granjero','Cuerpo completo',['mancuernas'],[],'BT',1,'Hombros atrás, pasos cortos y firmes.');
 X('burpees','Burpees','Cuerpo completo',['corporal'],['rodilla','muneca','hombro'],'IC',2,'Versión suave: sin salto y con manos en un banco.');
@@ -275,7 +277,7 @@ const CATS={
  biceps:['curl_barra','curl_manc','curl_martillo','curl_polea','curl_banda'],
  triceps:['ext_polea','press_frances','fondos_banco','ext_tric_manc','ext_tric_banda','fondos_paralelas'],
  core:['plancha','pallof','dead_bug','bird_dog','plancha_lat','crunch','rot_banda','elev_piernas'],
- suelo_pelvico:['suelo_pelvico'], equilibrio:['equilibrio'],
+ suelo_pelvico:['suelo_pelvico'], relajacion_pelvica:['relajacion_pelvica'], equilibrio:['equilibrio'],
  metabolico:['swing_kb','burpees','farmer','saltos_cajon']
 };
 const FALLBACK={sentadilla:['unilateral','cuad_iso','gluteo'],bisagra:['gluteo','femoral_iso'],unilateral:['sentadilla','gluteo'],cuad_iso:['sentadilla','unilateral'],femoral_iso:['bisagra','gluteo'],gluteo:['bisagra','abductor'],abductor:['gluteo'],empuje_h:['empuje_inc'],empuje_inc:['empuje_h'],empuje_v:['lateral'],lateral:['empuje_v','posterior'],tiron_v:['tiron_h'],tiron_h:['tiron_v'],posterior:['tiron_h'],triceps:['empuje_h'],metabolico:['core']};
@@ -432,7 +434,7 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ================= CÁLCULOS ================= */
-function conds(c){return c.condiciones.filter(x=>c.sexo==='M'||!CONDS_M.some(m=>m[0]===x))}
+function conds(c){return c.condiciones.filter(x=>(c.sexo==='M'||!CONDS_M.some(m=>m[0]===x))&&(c.sexo==='H'||!CONDS_H.some(m=>m[0]===x)))}
 function metrics(c){
  const peso=+c.peso||0,alt=+c.altura||0,edad=+c.edad||0,H=c.sexo==='H',hm=alt/100;
  const imc=hm?peso/(hm*hm):0;
@@ -512,6 +514,14 @@ function rules(c,m){
  if(has('posparto')){fl('I','F');R.hiit=false;if(!R.extra.includes('suelo_pelvico'))R.extra.push('suelo_pelvico');T('Posparto: primero suelo pélvico y core profundo. Sin impacto ni abdominales clásicos hasta valoración de fisioterapeuta de suelo pélvico (diástasis, incontinencia).')}
  if(has('lactancia'))D('Lactancia: se suman unas 400 kcal y el déficit se limita al 10% para no afectar a la producción de leche. Beber a demanda.');
  if(has('menopausia')){T('Menopausia: la fuerza pesada (bien hecha) y algo de impacto controlado protegen hueso y músculo. Priorizar el descanso.');D('Menopausia: proteína alta en cada comida, calcio y vitamina D. Reducir azúcar y alcohol ayuda con la grasa abdominal y los sofocos.')}
+ const addSP=()=>{if(!R.extra.includes('suelo_pelvico'))R.extra.push('suelo_pelvico')};
+ if(has('incontinencia')){addSP();if((c.tipoIncont||'esfuerzo')!=='urgencia')fl('I');T('Pérdidas de orina: sin saltos ni carrera hasta controlar las pérdidas; exhalar y activar el suelo pélvico en cada esfuerzo. Programa completo en la pestaña "Suelo pélvico".')}
+ if(has('prolapso')){addSP();fl('I','A');T('Prolapso: sin impacto ni cargas pesadas con apnea. Exhalar en el esfuerzo y preferir posiciones sentadas o tumbadas para la fuerza.')}
+ if(has('prostatectomia')){addSP();fl('A');T('Cirugía de próstata: nada de cargas pesadas ni esfuerzos con apnea hasta que el urólogo lo autorice (normalmente 6 semanas o más).')}
+ if(has('disfuncion_erectil')){addSP();T('Disfunción eréctil: el ejercicio aeróbico regular y el trabajo de suelo pélvico mejoran la erección. Programa en la pestaña "Suelo pélvico".')}
+ if(has('eyaculacion_precoz'))addSP();
+ if(has('menopausia'))addSP();
+ if(has('dolor_pelvico')){R.extra=R.extra.filter(x=>x!=='suelo_pelvico');R.extra.push('relajacion_pelvica');T('Dolor pélvico / suelo pélvico tenso: el objetivo es relajar, no apretar. Evitar abdominales intensos y apneas; incluir respiración y estiramientos de cadera.')}
  if(has('endometriosis')){T('Endometriosis: adaptar la intensidad en los días de dolor; mantener movilidad suave en lugar de parar del todo.');D('Endometriosis: patrón antiinflamatorio (pescado azul, verdura, fruta, AOVE) y menos ultraprocesados.')}
  if(c.sexo==='M'&&!has('embarazo')&&!has('menopausia')&&m.edad>=12&&m.edad<=52)T('Ciclo menstrual: en la fase folicular (tras la regla) suele rendir más: buen momento para subir cargas. En la fase lútea es normal notar más cansancio y hambre (+100-200 kcal).');
  // Medicación
@@ -637,7 +647,7 @@ function dosis(e,c,R,idx,m){
  if(m.edad>=65){sets=Math.min(sets,3);if(comp)reps='8-12'}
  if(R.rpeMax<=6)rpe='5-6';else if(R.rpeMax<=7&&rpe!=='6-7')rpe='6-7';
  if(e.fl.includes('T')){reps=e.id==='equilibrio'?'20-30 s/pierna':e.id==='farmer'?'30-40 m':'30-45 s';rest=Math.min(rest,60)}
- if(e.id==='suelo_pelvico'){sets=2;reps='8-10 resp.';rest=30}
+ if(e.id==='suelo_pelvico'||e.id==='relajacion_pelvica'){sets=2;reps='8-10 resp.';rest=30}
  if(g==='atletico'&&e.id==='saltos_cajon'){reps='5';rest=90}
  return{sets,reps,rest,rpe};
 }
@@ -884,12 +894,13 @@ function renderMain(){
  const c=cur();
  if(!c){$('#main').innerHTML=`<div class="empty"><h1>CoachFit Pro</h1><p class="muted">Crea la ficha de tu primer cliente para diseñar su entrenamiento y su dieta.</p>
   <div class="newbtns"><button class="btn-sex M" data-act="new" data-v="M">+ Nueva clienta (mujer)</button><button class="btn-sex H" data-act="new" data-v="H">+ Nuevo cliente (hombre)</button></div></div>`;return}
- const tabs=[['ficha','Ficha del cliente'],['entreno','Entrenamiento'],['dieta','Dieta'],['progreso','Progreso']];
+ const tabs=[['ficha','Ficha del cliente'],['entreno','Entrenamiento'],['dieta','Dieta'],['suelo','Suelo pélvico'],['progreso','Progreso']];
  let body='';
  const m=metrics(c),R=rules(c,m);
  if(S.tab==='ficha')body=viewFicha(c,m);
  else if(S.tab==='entreno')body=viewEntreno(c,m,R);
  else if(S.tab==='dieta')body=viewDieta(c,m,R);
+ else if(S.tab==='suelo')body=viewSuelo(c,m);
  else body=viewProgreso(c);
  $('#main').innerHTML=printHead(c)+`<div class="top"><h1 id="ttl">${esc(c.nombre)}</h1><span class="badge">${c.sexo==='M'?'Mujer':'Hombre'} · ${esc(c.edad)} años</span><span class="badge">${esc(OBJ_N[c.objetivo])}</span></div>
  <div class="tabs">${tabs.map(([v,l])=>`<button data-tab="${v}" class="${S.tab===v?'on':''}">${l}</button>`).join('')}</div>${body}`+printFoot();
@@ -938,7 +949,8 @@ function viewFicha(c,m){
  <div class="card"><h2>Salud</h2><p class="sub">Todo lo marcado aquí modifica ejercicios, intensidad, calorías y alimentos.</p>
   <h3>Enfermedades y condiciones</h3>${chips('condiciones',CONDS,c.condiciones)}
   ${c.sexo==='M'?`<h3>Condiciones específicas de la mujer</h3>${chips('condiciones',CONDS_M,c.condiciones)}
-   ${c.condiciones.includes('embarazo')?`<div class="row">${seg('trimestre',[[1,'1er trimestre'],[2,'2º trimestre'],[3,'3er trimestre']],c.trimestre)}</div>`:''}`:''}
+   ${c.condiciones.includes('embarazo')?`<div class="row">${seg('trimestre',[[1,'1er trimestre'],[2,'2º trimestre'],[3,'3er trimestre']],c.trimestre)}</div>`:''}`:`<h3>Condiciones específicas del hombre</h3>${chips('condiciones',CONDS_H,c.condiciones)}`}
+  ${c.condiciones.includes('incontinencia')?`<div class="row"><div><div class="muted" style="font-size:12.5px;margin-bottom:4px">Tipo de pérdidas de orina</div>${seg('tipoIncont',[['esfuerzo','Al toser, saltar o reír (esfuerzo)'],['urgencia','Ganas repentinas (urgencia)'],['mixta','Ambas (mixta)']],c.tipoIncont||'esfuerzo')}</div></div>`:''}
   <h3>Lesiones o dolor actual</h3>${chips('lesiones',LESIONES,c.lesiones)}
   <h3>Discapacidad física</h3><div style="max-width:380px">${sel('discapacidad','',DISCAP,c.discapacidad)}</div>
   <h3>Medicación relevante</h3>${chips('medicacion',MEDS,c.medicacion)}
@@ -1036,6 +1048,68 @@ function libreHTML(c,m,N){
  if(al.length)warn.push('Las alergias e intolerancias siguen igual en el día libre: evita '+al.join(', ')+'.');
  if(cs.includes('celiaquia'))warn.push('Celiaquía: ni un día libre de gluten. Elige sitios con opciones sin gluten certificadas.');
  return`<div><h3 style="margin-top:0">${DIAS[S.dietDay]}: día libre</h3>${notesHTML(warn,'warn')}<ul style="margin:6px 0 0;padding-left:20px;display:grid;gap:6px">${pts.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`;
+}
+/* ---- Programa de suelo pélvico ---- */
+function viewSuelo(c,m){
+ const cs=conds(c),has=x=>cs.includes(x),H=c.sexo==='H',ti=c.tipoIncont||'esfuerzo';
+ const tenso=has('dolor_pelvico'),sinSupino=has('embarazo')&&+c.trimestre>=2;
+ const gx=(h,m)=>H?h:m,posTxt=sinSupino?'sentada o tumbada de lado':gx('tumbado','tumbada')+' boca arriba con las rodillas dobladas';
+ const cue=H?'Imagina que cortas el chorro de orina y a la vez retienes un gas. Si lo haces bien, notarás que la base del pene se retrae y los testículos suben ligeramente.'
+  :'Imagina que cortas el chorro de orina y a la vez retienes un gas: sensación de "cerrar y subir" la vagina y el ano hacia dentro.';
+ const E={
+  resp:['Respiración diafragmática 360º',`${posTxt[0].toUpperCase()+posTxt.slice(1)}. Inhala por la nariz llevando el aire a costillas, abdomen y suelo pélvico, que baja y se relaja. Exhala por la boca, suave y largo: el suelo pélvico sube solo.`,'5 min, 2 veces al día'],
+  loc:['Localizar el suelo pélvico',cue+' Glúteos, muslos y abdomen relajados, y sin dejar de respirar. Cortar el pis sirve solo para localizarlo una vez: no lo practiques al orinar.','Los primeros días, 5-10 intentos'],
+  len1:['Contracciones lentas (resistencia)',`Contrae y eleva, mantén y suelta del todo. Descansa el doble de lo que mantienes. Posición: ${posTxt}.`,'5 s × 8-10 repeticiones, 3 veces al día'],
+  len2:['Contracciones lentas (resistencia)','Igual que antes, pero sentado y de pie. Mantén sin aguantar la respiración.','8-10 s × 10 repeticiones, 3 veces al día'],
+  len3:['Contracciones lentas (resistencia)','De pie, caminando y subiendo escaleras.','10 s × 10 repeticiones, 2-3 veces al día'],
+  rap:['Contracciones rápidas (potencia)','Contrae fuerte y rápido 1 s y suelta 1 s.','10 repeticiones después de las lentas'],
+  knack:['Pre-contracción ("the knack")','Contrae el suelo pélvico justo antes y durante toser, estornudar, reír, levantar peso o saltar.','Siempre, hasta que salga solo'],
+  integ:['Integración en el entrenamiento','Exhala y activa el suelo pélvico al hacer la fuerza: al subir en la sentadilla, al empujar en el press, al levantar del suelo. Nada de aguantar el aire con cargas pesadas.','En todos los ejercicios de fuerza'],
+  puente:['Puente de glúteo con activación',sinSupino?'Versión sentada: exhala activando el suelo pélvico mientras aprietas glúteos y te "estiras" hacia arriba.':gx('Tumbado','Tumbada')+', exhala activando el suelo pélvico y sube la cadera; baja inhalando y soltando.','2-3 series de 10'],
+  urg:['Controlar la urgencia','Cuando lleguen las ganas repentinas: para, quédate '+gx('quieto','quieta')+', haz 5 contracciones rápidas, respira despacio y espera a que bajen. Después ve al baño caminando '+gx('tranquilo','tranquila')+'.','En cada episodio. Además, alarga 15 min cada semana el tiempo entre micciones hasta llegar a 3-4 horas'],
+  erec:['Contracciones máximas para la erección','Contrae con toda la fuerza como si quisieras elevar el pene sin usar las manos; mantén y suelta por completo. Contraer también durante la erección ayuda a mantener la rigidez.','3 series al día de 18 contracciones de 3-5 s: una tumbado, otra sentado y otra de pie'],
+  eyac:['Control y relajación (eyaculación precoz)','Practica tanto contraer fuerte como relajar por completo. En la relación, cuando note que se acerca el punto de no retorno: contraer 3-5 s, respirar despacio y bajar el ritmo.','Contracciones lentas y rápidas a diario + práctica de control'],
+  relax:['Relajación y "bajada" del suelo pélvico','Inhala imaginando que el suelo pélvico se abre y baja; exhala sin apretar. Acompáñalo de posturas: postura del niño, bebé feliz y sentadilla profunda con apoyo.','10 min al día; 1 min por postura'],
+  suave:['Contracción suave y relajación completa','Solo con el visto bueno del fisioterapeuta: contrae al 30% de tu fuerza 3 s y relaja 6-9 s, comprobando que la relajación es completa.','5-8 repeticiones, 1-2 veces al día']};
+ let fases;
+ if(tenso)fases=[['Semanas 1-4 · Aprender a relajar',['resp','relax']],['Semanas 5-8 · Control',['relax','suave']],['Desde la semana 9 · Integración',['relax','integ']]];
+ else{
+  const f2=['len2','rap'],f3=['len3','rap','knack','integ','puente'];
+  if(has('incontinencia')&&ti!=='esfuerzo'){f2.push('urg');f3.splice(3,0,'urg')}
+  if(has('incontinencia')&&ti!=='urgencia')f2.push('knack');
+  if(has('disfuncion_erectil')){f2.push('erec');f3.push('erec')}
+  if(has('eyaculacion_precoz')){f2.push('eyac');f3.push('eyac')}
+  fases=[['Semanas 1-2 · Conciencia',['resp','loc','len1']],['Semanas 3-8 · Fuerza y resistencia',[...new Set(f2)]],['Semanas 9-12 · Función',[...new Set(f3)]]];
+ }
+ const perfil=[];
+ if(has('incontinencia'))perfil.push({esfuerzo:'pérdidas de orina de esfuerzo',urgencia:'pérdidas de orina por urgencia',mixta:'pérdidas de orina mixtas'}[ti]);
+ [['prolapso','prolapso'],['disfuncion_erectil','disfunción eréctil'],['prostatectomia','recuperación tras cirugía de próstata'],['eyaculacion_precoz','eyaculación precoz'],['dolor_pelvico','dolor pélvico / suelo pélvico tenso'],['embarazo','embarazo'],['posparto','posparto'],['menopausia','menopausia']].forEach(([k,t])=>{if(has(k))perfil.push(t)});
+ const al=[],hab=[];
+ if(has('disfuncion_erectil'))al.push('La disfunción eréctil puede ser el primer aviso de un problema cardiovascular, de diabetes o de hormonas: imprescindible una revisión médica, aunque el ejercicio ayude.');
+ if(has('prostatectomia'))al.push('Tras la cirugía de próstata, empezar los ejercicios cuando el urólogo lo autorice (normalmente al retirar la sonda). Si es posible, empezarlos ya antes de operarse.');
+ if(has('posparto'))al.push('Posparto: hasta la revisión médica (unas 6 semanas) quedarse en la fase 1. Ideal una valoración con fisioterapeuta de suelo pélvico antes de volver a correr o saltar.');
+ if(tenso)al.push('Con dolor pélvico o suelo pélvico tenso NO hacer ejercicios de apretar fuerte (Kegel): pueden empeorarlo. El programa se centra en relajar. Recomendable valoración con fisioterapeuta especialista.');
+ if(has('prolapso'))al.push('Prolapso: valoración con ginecólogo y fisioterapeuta de suelo pélvico; en algunos casos un pesario ayuda a hacer deporte.');
+ if(sinSupino)al.push('Embarazo (2º-3er trimestre): no hacer los ejercicios tumbada boca arriba; mejor sentada o de lado.');
+ al.push('Consulta médica si hay sangre en la orina, dolor o escozor al orinar, fiebre, o si las molestias empeoran o no mejoran en 12 semanas.');
+ hab.push('Mantener un peso saludable: cada kilo de más aumenta la presión sobre el suelo pélvico.');
+ hab.push('Evitar el estreñimiento: fibra (25-30 g al día), agua y un taburete bajo los pies en el váter. No empujar al defecar.');
+ hab.push('No ir al baño "por si acaso"; orinar sin empujar y sin prisa.');
+ hab.push('Exhalar al hacer fuerza (cargar la compra, levantar a un niño, entrenar).');
+ if(has('incontinencia')&&ti!=='esfuerzo')hab.push('Urgencia: reducir café, té, alcohol y bebidas con gas. No beber menos agua: la orina concentrada irrita más la vejiga.');
+ if(has('disfuncion_erectil'))hab.push('Erección: ejercicio aeróbico 40 min, 4 días por semana (caminar rápido, bici), dejar el tabaco, moderar el alcohol, dormir bien y tener controlados tensión, glucosa y colesterol.');
+ if(has('menopausia'))hab.push('Menopausia: la sequedad y las pérdidas pueden mejorar con tratamiento local; consultar con el ginecólogo.');
+ if(has('prolapso')||has('incontinencia'))hab.push('Deporte: cambiar temporalmente el impacto (correr, saltar) por bici, elíptica o natación, y volver de forma progresiva.');
+ const exHTML=k=>{const [n,como,dosis]=E[k];return`<div class="exrow"><div class="exn"><b>${esc(n)}</b><small>${esc(como)}</small><small><b>Dosis:</b> ${esc(dosis)}</small></div></div>`};
+ return`<div class="card"><h2>Suelo pélvico</h2><p class="sub">${perfil.length?'Programa adaptado a: '+esc(perfil.join(', '))+'.':'Programa preventivo. Marca en la ficha las pérdidas de orina, el dolor pélvico'+(H?', la disfunción eréctil o la cirugía de próstata':' o el prolapso')+' para adaptarlo.'}</p>
+  ${notesHTML(al.slice(0,-1),'bad')}${notesHTML(al.slice(-1),'warn')}
+  <h3>Qué es</h3><p style="margin:0;font-size:14px">Un grupo de músculos que cierra la pelvis por abajo, como una hamaca entre el pubis, el coxis y los huesos de sentarse. ${H?'Sostiene la vejiga y el recto, controla la orina y los gases, y participa en la erección y la eyaculación (los músculos bulboesponjoso e isquiocavernoso).':'Sostiene la vejiga, el útero y el recto, controla la orina y los gases, y participa en la función sexual.'} Trabaja en equipo con el diafragma y el abdomen profundo.</p>
+  <h3>Cómo localizarlo</h3><p style="margin:0;font-size:14px">${esc(cue)}</p></div>
+ ${fases.map(([t,ks])=>`<div class="card"><h2>${t}</h2>${ks.map(exHTML).join('')}</div>`).join('')}
+ <div class="card"><h2>Mantenimiento</h2><p style="margin:0;font-size:14px">${tenso?'Seguir con la respiración y la relajación a diario, sobre todo en días de estrés o dolor.':'Desde la semana 13: contracciones lentas y rápidas 3 días por semana, y la pre-contracción y la exhalación en los esfuerzos para siempre.'} Los resultados suelen notarse entre las 6 y las 12 semanas de práctica constante.</p></div>
+ <div class="card"><h2>Hábitos que ayudan</h2><ul style="margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px">${hab.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
+  <div class="row noprint"><button class="ghost" data-act="print">Imprimir / PDF para el cliente</button></div>
+  <p class="disclaimer">Programa orientativo de ejercicio. No sustituye la valoración de un fisioterapeuta especialista en suelo pélvico ni del médico.</p></div>`;
 }
 function favCard(c){
  const favs=(c.favoritos||[]).map(id=>foodById(c,id)).filter(Boolean),own=c.alimentosExtra||[],fijos=c.fijos||[];
@@ -1305,7 +1379,7 @@ document.addEventListener('click',e=>{
   if(d.tog==='diasLibres'){if(arr.length>2){arr.pop();toast('Máximo 2 días libres por semana');return}save();const y=scrollY;render();scrollTo(0,y);return}
   if(d.tog==='disgustos'&&i<0)c.favoritos=(c.favoritos||[]).filter(x=>x!==d.v);
   save();
-  if(d.v==='embarazo'){render();return}
+  if(d.v==='embarazo'||d.v==='incontinencia'){const y=scrollY;render();scrollTo(0,y);return}
   b.classList.toggle('on',i<0);
   const det=b.closest('details');if(det){const s=det.querySelector('summary .muted');if(s)s.textContent=`(${det.querySelectorAll('.chip.on').length} quitados)`}
   return}
